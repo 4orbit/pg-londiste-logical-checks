@@ -1,6 +1,6 @@
 #!/bin/sh -ex
 
-export PATH=/usr/pgsql-11/bin:$PATH
+export PATH=/usr/pgsql-12/bin:$PATH
 pg_ctl stop -D /tmp/master || echo "ok"
 pg_ctl stop -D /tmp/standby || echo "ok"
 rm -rf /tmp/master

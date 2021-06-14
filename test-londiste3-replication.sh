@@ -1,14 +1,16 @@
 #!/bin/sh -ex
 
-export PATH=/usr/pgsql-11/bin:$PATH
+export PATH=/usr/pgsql-12/bin:$PATH
 export PGDATA_MASTER=/tmp/master
 export PGDATA_STANDBY=/tmp/standby
-export PYTHONPATH=/usr/local/lib/python2.7/site-packages:/usr/lib/python2.7/site-packages:/usr/local/lib64/python2.7/site-packages
+
+#export PYTHONPATH=/usr/local/lib/python2.7/site-packages:/usr/lib/python2.7/site-packages:/usr/local/lib64/python2.7/site-packages
 
 ## kill pgqd and londiste proc
-kill -9 $(cat $PGDATA_MASTER/londiste_master.pid | head -n 1)
-kill -9 $(cat $PGDATA_MASTER/pgqd.pid | head -n 1)
-kill -9 $(cat $PGDATA_STANDBY/londiste_standby.pid | head -n 1)
+
+#kill -9 $(cat $PGDATA_MASTER/londiste_master.pid | head -n 1)
+#kill -9 $(cat $PGDATA_MASTER/pgqd.pid | head -n 1)
+#kill -9 $(cat $PGDATA_STANDBY/londiste_standby.pid | head -n 1)
 
 pg_ctl stop -D $PGDATA_MASTER || echo "ok"
 pg_ctl stop -D $PGDATA_STANDBY || echo "ok"
@@ -44,7 +46,7 @@ ALTER TABLE ONLY public.pgbench_accounts
 SQL
 
 cat <<EOF >>$PGDATA_MASTER/londiste_master.ini
-[londiste3]
+[londiste]
 job_name = master_table
 db = dbname=postgres port=15432
 queue_name = replication_queue
@@ -52,12 +54,12 @@ logfile = $PGDATA_MASTER/londiste_master.log
 pidfile = $PGDATA_MASTER/londiste_master.pid
 EOF
 
-londiste3 $PGDATA_MASTER/londiste_master.ini create-root master 'dbname=postgres port=15432'
+londiste $PGDATA_MASTER/londiste_master.ini create-root master 'dbname=postgres port=15432'
 
-londiste3 -d $PGDATA_MASTER/londiste_master.ini worker
+londiste -d $PGDATA_MASTER/londiste_master.ini worker
 
 cat <<EOF >>$PGDATA_STANDBY/londiste_standby.ini
-[londiste3]
+[londiste]
 job_name = standby_table
 db = dbname=postgres port=25432
 queue_name = replication_queue
@@ -65,9 +67,9 @@ logfile = $PGDATA_STANDBY/londiste_standby.log
 pidfile = $PGDATA_STANDBY/londiste_standby.pid
 EOF
 
-londiste3 $PGDATA_STANDBY/londiste_standby.ini create-leaf standby 'dbname=postgres port=25432' --provider='dbname=postgres port=15432'
+londiste $PGDATA_STANDBY/londiste_standby.ini create-leaf standby 'dbname=postgres port=25432' --provider='dbname=postgres port=15432'
 
-londiste3 -d $PGDATA_STANDBY/londiste_standby.ini worker
+londiste -d $PGDATA_STANDBY/londiste_standby.ini worker
 
 cat <<EOF >>$PGDATA_MASTER/pgqd.ini
 [pgqd]
@@ -78,12 +80,12 @@ EOF
 
 pgqd -d $PGDATA_MASTER/pgqd.ini
 
-londiste3 $PGDATA_MASTER/londiste_master.ini add-table public.pgbench_accounts
+londiste $PGDATA_MASTER/londiste_master.ini add-table public.pgbench_accounts
 
-londiste3 $PGDATA_STANDBY/londiste_standby.ini add-table public.pgbench_accounts
+londiste $PGDATA_STANDBY/londiste_standby.ini add-table public.pgbench_accounts
 
 
-while [[ `londiste3 $PGDATA_STANDBY/londiste_standby.ini compare 2>&1| grep -c 'checksum'` = 0 ]]; do
+while [[ `londiste $PGDATA_STANDBY/londiste_standby.ini compare 2>&1| grep -c 'checksum'` = 0 ]]; do
     sleep 1
     echo "wait sync"
 done
@@ -91,7 +93,7 @@ echo "sync complete"
 
 pgbench -T 120 -c 40 -p 15432
 
-while [[ `londiste3 $PGDATA_STANDBY/londiste_standby.ini compare 2>&1| grep -c 'checksum'` = 0 ]]; do
+while [[ `londiste $PGDATA_STANDBY/londiste_standby.ini compare 2>&1| grep -c 'checksum'` = 0 ]]; do
     sleep 1
     echo "wait sync"
 done
